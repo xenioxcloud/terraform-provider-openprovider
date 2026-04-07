@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -53,6 +54,9 @@ func (r *DomainNameserversResource) Schema(_ context.Context, _ resource.SchemaR
 			"domain_id": schema.Int64Attribute{
 				Description: "Openprovider domain ID (resolved automatically).",
 				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"nameservers": schema.ListNestedAttribute{
 				Description: "List of nameservers to set on the domain.",
@@ -173,11 +177,20 @@ func toAPINameservers(models []NameserverModel) []openprovider.Nameserver {
 func fromAPINameservers(apiNS []openprovider.Nameserver) []NameserverModel {
 	models := make([]NameserverModel, len(apiNS))
 	for i, ns := range apiNS {
-		models[i] = NameserverModel{
+		m := NameserverModel{
 			Name: types.StringValue(ns.Name),
-			IP4:  types.StringValue(ns.IP4),
-			IP6:  types.StringValue(ns.IP6),
 		}
+		if ns.IP4 != "" {
+			m.IP4 = types.StringValue(ns.IP4)
+		} else {
+			m.IP4 = types.StringNull()
+		}
+		if ns.IP6 != "" {
+			m.IP6 = types.StringValue(ns.IP6)
+		} else {
+			m.IP6 = types.StringNull()
+		}
+		models[i] = m
 	}
 	return models
 }
