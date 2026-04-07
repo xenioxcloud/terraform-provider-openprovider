@@ -13,7 +13,10 @@ import (
 	"github.com/xenioxcloud/terraform-provider-openprovider/internal/openprovider"
 )
 
-var _ resource.Resource = &DomainNameserversResource{}
+var (
+	_ resource.Resource                = &DomainNameserversResource{}
+	_ resource.ResourceWithImportState = &DomainNameserversResource{}
+)
 
 // DomainNameserversResource manages nameservers for an Openprovider domain.
 type DomainNameserversResource struct {
@@ -160,6 +163,24 @@ func (r *DomainNameserversResource) Update(ctx context.Context, req resource.Upd
 func (r *DomainNameserversResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Nameservers can't be "deleted" — removing from state is sufficient.
 	// The domain keeps whatever nameservers were last set.
+}
+
+func (r *DomainNameserversResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Import by domain name, e.g.: terraform import openprovider_domain_nameservers.test xeniox-test.nl
+	domainName := req.ID
+
+	domain, err := r.client.FindDomainByName(domainName)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to find domain", err.Error())
+		return
+	}
+
+	var data DomainNameserversResourceModel
+	data.Domain = types.StringValue(domainName)
+	data.DomainID = types.Int64Value(int64(domain.ID))
+	data.Nameservers = fromAPINameservers(domain.Nameservers)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func toAPINameservers(models []NameserverModel) []openprovider.Nameserver {

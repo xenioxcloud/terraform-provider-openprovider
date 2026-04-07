@@ -14,7 +14,10 @@ import (
 	"github.com/xenioxcloud/terraform-provider-openprovider/internal/openprovider"
 )
 
-var _ resource.Resource = &DomainDNSSECResource{}
+var (
+	_ resource.Resource                = &DomainDNSSECResource{}
+	_ resource.ResourceWithImportState = &DomainDNSSECResource{}
+)
 
 // DomainDNSSECResource manages DNSSEC for an Openprovider domain.
 type DomainDNSSECResource struct {
@@ -148,4 +151,22 @@ func (r *DomainDNSSECResource) Delete(ctx context.Context, req resource.DeleteRe
 		resp.Diagnostics.AddError("Failed to disable DNSSEC", err.Error())
 		return
 	}
+}
+
+func (r *DomainDNSSECResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Import by domain name, e.g.: terraform import openprovider_domain_dnssec.test xeniox-test.nl
+	domainName := req.ID
+
+	domain, err := r.client.FindDomainByName(domainName)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to find domain", err.Error())
+		return
+	}
+
+	var data DomainDNSSECResourceModel
+	data.Domain = types.StringValue(domainName)
+	data.DomainID = types.Int64Value(int64(domain.ID))
+	data.Enabled = types.BoolValue(domain.IsDNSSECEnabled)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
