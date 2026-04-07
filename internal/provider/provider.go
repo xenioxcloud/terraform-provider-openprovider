@@ -22,6 +22,7 @@ type OpenproviderProvider struct {
 type OpenproviderProviderModel struct {
 	Username types.String `tfsdk:"username"`
 	Password types.String `tfsdk:"password"`
+	Sandbox  types.Bool   `tfsdk:"sandbox"`
 }
 
 // New returns a new provider factory function.
@@ -51,6 +52,10 @@ func (p *OpenproviderProvider) Schema(_ context.Context, _ provider.SchemaReques
 				Optional:    true,
 				Sensitive:   true,
 			},
+			"sandbox": schema.BoolAttribute{
+				Description: "Use the Openprovider sandbox environment. Can also be set via OPENPROVIDER_SANDBOX env var.",
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -72,6 +77,11 @@ func (p *OpenproviderProvider) Configure(ctx context.Context, req provider.Confi
 		password = config.Password.ValueString()
 	}
 
+	sandbox := os.Getenv("OPENPROVIDER_SANDBOX") == "true"
+	if !config.Sandbox.IsNull() {
+		sandbox = config.Sandbox.ValueBool()
+	}
+
 	if username == "" {
 		resp.Diagnostics.AddError("Missing username", "Set username in provider config or OPENPROVIDER_USERNAME env var")
 		return
@@ -81,7 +91,7 @@ func (p *OpenproviderProvider) Configure(ctx context.Context, req provider.Confi
 		return
 	}
 
-	client := openprovider.NewClient(username, password)
+	client := openprovider.NewClient(username, password, sandbox)
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }

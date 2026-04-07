@@ -10,12 +10,16 @@ import (
 	"time"
 )
 
-const baseURL = "https://api.openprovider.eu/v1beta"
+const (
+	productionURL = "https://api.openprovider.eu/v1beta"
+	sandboxURL    = "http://api.sandbox.openprovider.nl:8480/v1beta"
+)
 
 // Client is the Openprovider API client.
 type Client struct {
 	username   string
 	password   string
+	baseURL    string
 	httpClient *http.Client
 
 	mu    sync.Mutex
@@ -23,10 +27,15 @@ type Client struct {
 }
 
 // NewClient creates a new Openprovider API client.
-func NewClient(username, password string) *Client {
+func NewClient(username, password string, sandbox bool) *Client {
+	url := productionURL
+	if sandbox {
+		url = sandboxURL
+	}
 	return &Client{
 		username: username,
 		password: password,
+		baseURL:  url,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -47,7 +56,7 @@ func (c *Client) authenticate() error {
 		return fmt.Errorf("marshaling auth request: %w", err)
 	}
 
-	resp, err := c.httpClient.Post(baseURL+"/auth/login", "application/json", bytes.NewReader(jsonBody))
+	resp, err := c.httpClient.Post(c.baseURL+"/auth/login", "application/json", bytes.NewReader(jsonBody))
 	if err != nil {
 		return fmt.Errorf("auth request failed: %w", err)
 	}
@@ -107,7 +116,7 @@ func (c *Client) doRequest(method, path string, body any) ([]byte, error) {
 		reqBody = bytes.NewReader(jsonBody)
 	}
 
-	req, err := http.NewRequest(method, baseURL+path, reqBody)
+	req, err := http.NewRequest(method, c.baseURL+path, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
