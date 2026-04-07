@@ -27,6 +27,12 @@ type Domain struct {
 	ExpirationDate  string       `json:"expiration_date"`
 	Nameservers     []Nameserver `json:"name_servers"`
 	IsDNSSECEnabled bool         `json:"is_dnssec_enabled"`
+	IsLocked        bool         `json:"is_locked"`
+	Autorenew       string       `json:"autorenew"`
+	OwnerHandle     string       `json:"owner_handle"`
+	AdminHandle     string       `json:"admin_handle"`
+	TechHandle      string       `json:"tech_handle"`
+	BillingHandle   string       `json:"billing_handle"`
 }
 
 // domainListResponse wraps the list domains API response.
@@ -106,6 +112,47 @@ func (c *Client) UpdateDomainDNSSEC(id int, enabled bool) error {
 		return fmt.Errorf("updating DNSSEC for domain %d: %w", id, err)
 	}
 
+	return nil
+}
+
+// UpdateDomainLock sets the lock status for a domain.
+func (c *Client) UpdateDomainLock(id int, locked bool) error {
+	body := map[string]any{
+		"is_locked": locked,
+	}
+	_, err := c.doRequest("PUT", fmt.Sprintf("/domains/%d", id), body)
+	if err != nil {
+		return fmt.Errorf("updating lock for domain %d: %w", id, err)
+	}
+	return nil
+}
+
+// UpdateDomainAutorenew sets the auto-renewal mode for a domain.
+// Valid values: "on", "off", "default".
+func (c *Client) UpdateDomainAutorenew(id int, autorenew string) error {
+	body := map[string]any{
+		"autorenew": autorenew,
+	}
+	_, err := c.doRequest("PUT", fmt.Sprintf("/domains/%d", id), body)
+	if err != nil {
+		return fmt.Errorf("updating autorenew for domain %d: %w", id, err)
+	}
+	return nil
+}
+
+// UpdateDomainSettings updates lock and autorenew in a single API call.
+// lockEnabled controls whether the is_locked field is sent (some TLDs don't support it).
+func (c *Client) UpdateDomainSettings(id int, locked *bool, autorenew string) error {
+	body := map[string]any{
+		"autorenew": autorenew,
+	}
+	if locked != nil {
+		body["is_locked"] = *locked
+	}
+	_, err := c.doRequest("PUT", fmt.Sprintf("/domains/%d", id), body)
+	if err != nil {
+		return fmt.Errorf("updating settings for domain %d: %w", id, err)
+	}
 	return nil
 }
 
